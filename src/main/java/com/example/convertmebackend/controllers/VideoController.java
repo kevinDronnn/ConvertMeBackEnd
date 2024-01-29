@@ -1,9 +1,6 @@
 package com.example.convertmebackend.controllers;
 
-import it.sauronsoftware.jave.AudioAttributes;
-import it.sauronsoftware.jave.Encoder;
-import it.sauronsoftware.jave.EncoderException;
-import it.sauronsoftware.jave.EncodingAttributes;
+import it.sauronsoftware.jave.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,19 +12,21 @@ import java.nio.file.StandardCopyOption;
 
 @RestController
 @CrossOrigin("*")
-@RequestMapping("/audio")
-public class AudioController {
+@RequestMapping("/video")
+public class VideoController {
 
     @PostMapping("/converter")
     public ResponseEntity<byte[]> returnConvertedAudio(@RequestParam("file") MultipartFile file,
-                                                      @RequestParam("original_extension") String original,
-                                                      @RequestParam("future_extension") String future,
-                                                      @RequestParam("codec") String codec,
-                                                      @RequestParam("bit_Rate") Integer bitRate,
-                                                      @RequestParam("channels") Integer channels,
-                                                      @RequestParam("sampling_rate") Integer samplingRate,
-                                                      @RequestParam("volume") Integer volume) {
-
+                                                       @RequestParam("original_extension") String original,
+                                                       @RequestParam("future_extension") String future,
+                                                       @RequestParam("video_codec") String videoCodec,
+                                                       @RequestParam("audio_codec") String audioCodec,
+                                                       @RequestParam("video_bit_rate") Integer videoBitRate,
+                                                       @RequestParam("audio_bit_rate") Integer audioBitRate,
+                                                       @RequestParam("video_frame_rate") Integer videoFrameRate,
+                                                       @RequestParam("channels") Integer channels,
+                                                       @RequestParam("sampling_rate") Integer samplingRate,
+                                                       @RequestParam("volume") Integer volume) {
         if (file.isEmpty() || file.getSize() == 0) {
             // Обработка случая, когда файл отсутствует или пуст
             return ResponseEntity.badRequest().build();
@@ -40,30 +39,22 @@ public class AudioController {
 
         try {
             // Создаем временный файл
-            Path tempFile = Files.createTempFile("temp_audio", "." + original);
+            Path tempFile = Files.createTempFile("temp_video", "." + original);
             // Копируем данные из MultipartFile в временный файл
             try (InputStream inputStream = file.getInputStream()) {
                 Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
             }
-//            System.out.println(tempFile.getFileName()+"\n"+
-//                                original+"\n"+
-//                                future+"\n"+
-//                                codec+"\n"+
-//                                bitRate+"\n"+
-//                                channels+"\n"+
-//                                samplingRate+"\n"+
-//                                volume);
+
             // Вызываем метод конвертации с временным файлом
-            byte[] convertedData = audioConverter(tempFile.toFile(), future, codec, bitRate, channels, samplingRate, volume);
+            byte[] convertedData = videoConverter(tempFile.toFile(), future, videoCodec, audioCodec, videoBitRate, audioBitRate, videoFrameRate, channels, samplingRate, volume);
 
             // Удаляем временный файл
             Files.delete(tempFile);
 
+            // Получаем имя файла совместимое со всеми системами
             String fileName = file.getOriginalFilename();
             int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
             fileName = fileName.trim().replace(" ","").substring(startIndex + 1,fileName.lastIndexOf(".")-1);
-
-//            System.out.println(fileName);
 
             return ResponseEntity.ok()
                     .header("Content-Disposition",
@@ -76,38 +67,49 @@ public class AudioController {
         }
     }
 
-    private byte[] audioConverter(File source, String future, String codec, Integer bitRate,
-                             Integer channels, Integer samplingRate, Integer volume) throws EncoderException, IOException {
+    private byte[] videoConverter( File source,
+                                   String future,
+                                   String videoCodec,
+                                   String audioCodec,
+                                   Integer videoBitRate,
+                                   Integer audioBitRate,
+                                   Integer videoFrameRate,
+                                   Integer channels,
+                                   Integer samplingRate,
+                                   Integer volume) throws EncoderException, IOException {
+
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
         File target = new File("target." + future);
 
         Integer resultVolume = (volume * 256) / 100;
 
+
         AudioAttributes audio = new AudioAttributes();
-        audio.setCodec(codec);
-        audio.setBitRate(bitRate);
+        audio.setCodec(audioCodec);
+        audio.setBitRate(audioBitRate);
         audio.setChannels(channels);
         audio.setSamplingRate(samplingRate);
         audio.setVolume(resultVolume);
 
+
+        VideoAttributes video = new VideoAttributes();
+        video.setCodec(videoCodec);
+        video.setBitRate(videoBitRate);
+        video.setFrameRate(videoFrameRate);
+
         EncodingAttributes attrs = new EncodingAttributes();
         attrs.setFormat(future);
         attrs.setAudioAttributes(audio);
+        attrs.setVideoAttributes(video);
 
         Encoder encoder = new Encoder();
+        System.out.println(encoder.getInfo(source));
         encoder.encode(source, target, attrs);
 
         // Чтение данных из target в массив байтов
-        try (InputStream inputStream = new FileInputStream(target)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        Files.copy(target.toPath(), outputStream);
 
         // Удаляем временный файл
         Files.delete(target.toPath());
