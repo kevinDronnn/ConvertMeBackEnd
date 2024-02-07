@@ -1,9 +1,9 @@
 package com.example.convertmebackend.controllers;
 
-import it.sauronsoftware.jave.AudioAttributes;
-import it.sauronsoftware.jave.Encoder;
-import it.sauronsoftware.jave.EncoderException;
-import it.sauronsoftware.jave.EncodingAttributes;
+import com.example.convertmebackend.entity.AudioFileInfo;
+import it.sauronsoftware.jave.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +18,7 @@ import java.nio.file.StandardCopyOption;
 @RequestMapping("/audio")
 public class AudioController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AudioController.class);
     @PostMapping("/converter")
     public ResponseEntity<byte[]> returnConvertedAudio(@RequestParam("file") MultipartFile file,
                                                       @RequestParam("original_extension") String original,
@@ -45,16 +46,11 @@ public class AudioController {
             try (InputStream inputStream = file.getInputStream()) {
                 Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
             }
-//            System.out.println(tempFile.getFileName()+"\n"+
-//                                original+"\n"+
-//                                future+"\n"+
-//                                codec+"\n"+
-//                                bitRate+"\n"+
-//                                channels+"\n"+
-//                                samplingRate+"\n"+
-//                                volume);
+
             // Вызываем метод конвертации с временным файлом
             byte[] convertedData = audioConverter(tempFile.toFile(), future, codec, bitRate, channels, samplingRate, volume);
+
+            logger.info("file converted");
 
             // Удаляем временный файл
             Files.delete(tempFile);
@@ -62,8 +58,6 @@ public class AudioController {
             String fileName = file.getOriginalFilename();
             int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
             fileName = fileName.trim().replace(" ","").substring(startIndex + 1,fileName.lastIndexOf(".")-1);
-
-//            System.out.println(fileName);
 
             return ResponseEntity.ok()
                     .header("Content-Disposition",
@@ -75,7 +69,41 @@ public class AudioController {
             return ResponseEntity.badRequest().build();
         }
     }
+    @PostMapping ("/getAudioInfo")
+    public ResponseEntity<AudioFileInfo> returnAudioInfo(@RequestParam("file") MultipartFile file) throws EncoderException{
+        // Создаем временный файл
+        String fileName = file.getOriginalFilename();
+        int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
+        fileName = fileName.trim().replace(" ","").substring(fileName.lastIndexOf("."),fileName.length()-1);
+        Path tempFile = null;
+        try {
+            tempFile = Files.createTempFile("temp_audioInfo", "." + fileName);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        // Копируем данные из MultipartFile в временный файл
+        try (InputStream inputStream = file.getInputStream()) {
+            Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        Encoder encoder = new Encoder();
+        String name = file.getOriginalFilename().substring(startIndex+1);
 
+        double sizeInMb = (double) (file.getSize() / (1024 * 1024));
+
+        double roundedSize = Math.round(sizeInMb * 100.0) / 100.0;
+
+        AudioFileInfo audioInfo = new AudioFileInfo(
+                name,
+                roundedSize,
+                encoder.getInfo(tempFile.toFile()).getAudio().getBitRate()/10 ,
+                encoder.getInfo(tempFile.toFile()).getAudio().getSamplingRate());
+
+        logger.info("success get info about audio");
+
+        return ResponseEntity.ok().body(audioInfo);
+    }
     private byte[] audioConverter(File source, String future, String codec, Integer bitRate,
                              Integer channels, Integer samplingRate, Integer volume) throws EncoderException, IOException {
 

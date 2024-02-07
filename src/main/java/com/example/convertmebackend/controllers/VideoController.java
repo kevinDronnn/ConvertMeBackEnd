@@ -1,6 +1,9 @@
 package com.example.convertmebackend.controllers;
 
+import com.example.convertmebackend.entity.VideoFileInfo;
 import it.sauronsoftware.jave.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,16 +18,17 @@ import java.nio.file.StandardCopyOption;
 @RequestMapping("/video")
 public class VideoController {
 
+    private static Logger logger = LoggerFactory.getLogger(VideoController.class);
     @PostMapping("/converter")
-    public ResponseEntity<byte[]> returnConvertedAudio(@RequestParam("file") MultipartFile file,
+    public ResponseEntity<byte[]> returnConvertedVideo(@RequestParam("file") MultipartFile file,
                                                        @RequestParam("original_extension") String original,
                                                        @RequestParam("future_extension") String future,
                                                        @RequestParam("video_codec") String videoCodec,
                                                        @RequestParam("audio_codec") String audioCodec,
-                                                       @RequestParam("video_bit_rate") Integer videoBitRate,
-                                                       @RequestParam("audio_bit_rate") Integer audioBitRate,
-                                                       @RequestParam("video_frame_rate") Integer videoFrameRate,
-                                                       @RequestParam("channels") Integer channels,
+                                                       @RequestParam("video_bitrate") Integer videoBitRate,
+                                                       @RequestParam("audio_bitrate") Integer audioBitRate,
+                                                       @RequestParam("video_framerate") Integer videoFrameRate,
+                                                       @RequestParam("audio_channels") Integer channels,
                                                        @RequestParam("sampling_rate") Integer samplingRate,
                                                        @RequestParam("volume") Integer volume) {
         if (file.isEmpty() || file.getSize() == 0) {
@@ -48,6 +52,7 @@ public class VideoController {
             // Вызываем метод конвертации с временным файлом
             byte[] convertedData = videoConverter(tempFile.toFile(), future, videoCodec, audioCodec, videoBitRate, audioBitRate, videoFrameRate, channels, samplingRate, volume);
 
+            logger.info("file converted");
             // Удаляем временный файл
             Files.delete(tempFile);
 
@@ -67,6 +72,43 @@ public class VideoController {
         }
     }
 
+    @PostMapping("/getVideoInfo")
+    public ResponseEntity<VideoFileInfo> returnVideoInfo(@RequestParam("file") MultipartFile file) throws EncoderException {
+        // Создаем временный файл
+        String fileName = file.getOriginalFilename();
+        int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
+        fileName = fileName.trim().replace(" ","").substring(fileName.lastIndexOf("."),fileName.length()-1);
+        Path tempFile = null;
+        try {
+            tempFile = Files.createTempFile("temp_audioInfo", "." + fileName);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        // Копируем данные из MultipartFile в временный файл
+        try (InputStream inputStream = file.getInputStream()) {
+            Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        Encoder encoder = new Encoder();
+        String name = file.getOriginalFilename().substring(startIndex+1);
+
+        double sizeInMb = (double) (file.getSize() / (1024 * 1024));
+
+        double roundedSize = Math.round(sizeInMb * 100.0) / 100.0;
+
+        VideoFileInfo videoFileInfo = new VideoFileInfo(
+                name,
+                roundedSize,
+                encoder.getInfo(tempFile.toFile()).getVideo().getBitRate() ,
+                (int) encoder.getInfo(tempFile.toFile()).getVideo().getFrameRate(),
+                encoder.getInfo(tempFile.toFile()).getAudio().getBitRate(),
+                encoder.getInfo(tempFile.toFile()).getAudio().getSamplingRate()
+                );
+
+        logger.info("success get info about video");
+        return ResponseEntity.ok().body(videoFileInfo);
+    }
     private byte[] videoConverter( File source,
                                    String future,
                                    String videoCodec,
@@ -103,9 +145,8 @@ public class VideoController {
         attrs.setFormat(future);
         attrs.setAudioAttributes(audio);
         attrs.setVideoAttributes(video);
-
         Encoder encoder = new Encoder();
-        System.out.println(encoder.getInfo(source));
+
         encoder.encode(source, target, attrs);
 
         // Чтение данных из target в массив байтов
