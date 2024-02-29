@@ -2,6 +2,7 @@ package com.example.convertmebackend.controllers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.mail.*;
@@ -17,8 +18,8 @@ public class EmailController {
 
     @PostMapping("/send")
     public void sendEmail(@RequestParam("email") String email,
-                          @RequestParam("emailSubject") String subject ,
-                          @RequestParam("emailText") String text){
+                          @RequestParam("emailSubject") String subject,
+                          @RequestParam("emailText") String text) {
 
         Properties properties = System.getProperties();
         properties.put("mail.smtp.host", "smtp.gmail.com");
@@ -30,7 +31,7 @@ public class EmailController {
         String to = "some@gmail.com";
         String from = email;
 
-        Session session = Session.getInstance(properties, new javax.mail.Authenticator(){
+        Session session = Session.getInstance(properties, new javax.mail.Authenticator() {
             protected PasswordAuthentication getPasswordAuthentication() {
                 return new PasswordAuthentication(to, "pass");
             }

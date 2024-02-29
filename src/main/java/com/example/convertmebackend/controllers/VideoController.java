@@ -5,6 +5,7 @@ import it.sauronsoftware.jave.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,6 +20,7 @@ import java.nio.file.StandardCopyOption;
 public class VideoController {
 
     private static Logger logger = LoggerFactory.getLogger(VideoController.class);
+
     @PostMapping("/converter")
     public ResponseEntity<byte[]> returnConvertedVideo(@RequestParam("file") MultipartFile file,
                                                        @RequestParam("original_extension") String original,
@@ -59,7 +61,7 @@ public class VideoController {
             // Получаем имя файла совместимое со всеми системами
             String fileName = file.getOriginalFilename();
             int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
-            fileName = fileName.trim().replace(" ","").substring(startIndex + 1,fileName.lastIndexOf(".")-1);
+            fileName = fileName.trim().replace(" ", "").substring(startIndex + 1, fileName.lastIndexOf(".") - 1);
 
             return ResponseEntity.ok()
                     .header("Content-Disposition",
@@ -77,7 +79,7 @@ public class VideoController {
         // Создаем временный файл
         String fileName = file.getOriginalFilename();
         int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
-        fileName = fileName.trim().replace(" ","").substring(fileName.lastIndexOf("."),fileName.length()-1);
+        fileName = fileName.trim().replace(" ", "").substring(fileName.lastIndexOf("."), fileName.length() - 1);
         Path tempFile = null;
         try {
             tempFile = Files.createTempFile("temp_audioInfo", "." + fileName);
@@ -91,7 +93,7 @@ public class VideoController {
             throw new RuntimeException(e);
         }
         Encoder encoder = new Encoder();
-        String name = file.getOriginalFilename().substring(startIndex+1);
+        String name = file.getOriginalFilename().substring(startIndex + 1);
 
         double sizeInMb = (double) (file.getSize() / (1024 * 1024));
 
@@ -100,25 +102,26 @@ public class VideoController {
         VideoFileInfo videoFileInfo = new VideoFileInfo(
                 name,
                 roundedSize,
-                encoder.getInfo(tempFile.toFile()).getVideo().getBitRate() ,
+                encoder.getInfo(tempFile.toFile()).getVideo().getBitRate(),
                 (int) encoder.getInfo(tempFile.toFile()).getVideo().getFrameRate(),
                 encoder.getInfo(tempFile.toFile()).getAudio().getBitRate(),
                 encoder.getInfo(tempFile.toFile()).getAudio().getSamplingRate()
-                );
+        );
 
         logger.info("success get info about video");
         return ResponseEntity.ok().body(videoFileInfo);
     }
-    private byte[] videoConverter( File source,
-                                   String future,
-                                   String videoCodec,
-                                   String audioCodec,
-                                   Integer videoBitRate,
-                                   Integer audioBitRate,
-                                   Integer videoFrameRate,
-                                   Integer channels,
-                                   Integer samplingRate,
-                                   Integer volume) throws EncoderException, IOException {
+
+    private byte[] videoConverter(File source,
+                                  String future,
+                                  String videoCodec,
+                                  String audioCodec,
+                                  Integer videoBitRate,
+                                  Integer audioBitRate,
+                                  Integer videoFrameRate,
+                                  Integer channels,
+                                  Integer samplingRate,
+                                  Integer volume) throws EncoderException, IOException {
 
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();

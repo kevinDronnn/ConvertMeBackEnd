@@ -5,6 +5,7 @@ import it.sauronsoftware.jave.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,15 +20,16 @@ import java.nio.file.StandardCopyOption;
 public class AudioController {
 
     private static final Logger logger = LoggerFactory.getLogger(AudioController.class);
+
     @PostMapping("/converter")
     public ResponseEntity<byte[]> returnConvertedAudio(@RequestParam("file") MultipartFile file,
-                                                      @RequestParam("original_extension") String original,
-                                                      @RequestParam("future_extension") String future,
-                                                      @RequestParam("codec") String codec,
-                                                      @RequestParam("bit_Rate") Integer bitRate,
-                                                      @RequestParam("channels") Integer channels,
-                                                      @RequestParam("sampling_rate") Integer samplingRate,
-                                                      @RequestParam("volume") Integer volume) {
+                                                       @RequestParam("original_extension") String original,
+                                                       @RequestParam("future_extension") String future,
+                                                       @RequestParam("codec") String codec,
+                                                       @RequestParam("bit_Rate") Integer bitRate,
+                                                       @RequestParam("channels") Integer channels,
+                                                       @RequestParam("sampling_rate") Integer samplingRate,
+                                                       @RequestParam("volume") Integer volume) {
 
         if (file.isEmpty() || file.getSize() == 0) {
             // Обработка случая, когда файл отсутствует или пуст
@@ -57,7 +59,7 @@ public class AudioController {
 
             String fileName = file.getOriginalFilename();
             int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
-            fileName = fileName.trim().replace(" ","").substring(startIndex + 1,fileName.lastIndexOf(".")-1);
+            fileName = fileName.trim().replace(" ", "").substring(startIndex + 1, fileName.lastIndexOf(".") - 1);
 
             return ResponseEntity.ok()
                     .header("Content-Disposition",
@@ -69,12 +71,13 @@ public class AudioController {
             return ResponseEntity.badRequest().build();
         }
     }
-    @PostMapping ("/getAudioInfo")
-    public ResponseEntity<AudioFileInfo> returnAudioInfo(@RequestParam("file") MultipartFile file) throws EncoderException{
+
+    @PostMapping("/getAudioInfo")
+    public ResponseEntity<AudioFileInfo> returnAudioInfo(@RequestParam("file") MultipartFile file) throws EncoderException {
         // Создаем временный файл
         String fileName = file.getOriginalFilename();
         int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");
-        fileName = fileName.trim().replace(" ","").substring(fileName.lastIndexOf("."),fileName.length()-1);
+        fileName = fileName.trim().replace(" ", "").substring(fileName.lastIndexOf("."), fileName.length() - 1);
         Path tempFile = null;
         try {
             tempFile = Files.createTempFile("temp_audioInfo", "." + fileName);
@@ -88,7 +91,7 @@ public class AudioController {
             throw new RuntimeException(e);
         }
         Encoder encoder = new Encoder();
-        String name = file.getOriginalFilename().substring(startIndex+1);
+        String name = file.getOriginalFilename().substring(startIndex + 1);
 
         double sizeInMb = (double) (file.getSize() / (1024 * 1024));
 
@@ -97,15 +100,16 @@ public class AudioController {
         AudioFileInfo audioInfo = new AudioFileInfo(
                 name,
                 roundedSize,
-                encoder.getInfo(tempFile.toFile()).getAudio().getBitRate()/10 ,
+                encoder.getInfo(tempFile.toFile()).getAudio().getBitRate() / 10,
                 encoder.getInfo(tempFile.toFile()).getAudio().getSamplingRate());
 
         logger.info("success get info about audio");
 
         return ResponseEntity.ok().body(audioInfo);
     }
+
     private byte[] audioConverter(File source, String future, String codec, Integer bitRate,
-                             Integer channels, Integer samplingRate, Integer volume) throws EncoderException, IOException {
+                                  Integer channels, Integer samplingRate, Integer volume) throws EncoderException, IOException {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         File target = new File("target." + future);
