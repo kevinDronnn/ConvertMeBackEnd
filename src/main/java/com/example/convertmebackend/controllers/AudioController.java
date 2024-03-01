@@ -1,18 +1,25 @@
 package com.example.convertmebackend.controllers;
 
 import com.example.convertmebackend.entity.AudioFileInfo;
+import com.example.convertmebackend.entity.WebUser;
 import it.sauronsoftware.jave.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Base64;
 
 @RestController
 @CrossOrigin("*")
@@ -74,6 +81,7 @@ public class AudioController {
 
     @PostMapping("/getAudioInfo")
     public ResponseEntity<AudioFileInfo> returnAudioInfo(@RequestParam("file") MultipartFile file) throws EncoderException {
+
         // Создаем временный файл
         String fileName = file.getOriginalFilename();
         int startIndex = fileName.replaceAll("\\\\", "/").lastIndexOf("/");

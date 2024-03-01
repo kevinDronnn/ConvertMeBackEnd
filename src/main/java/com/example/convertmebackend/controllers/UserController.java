@@ -15,9 +15,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -29,11 +33,29 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
 
+    List<String> list = new ArrayList<>();
+
     @Autowired
     public UserController(UserService userService, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
+    }
+
+    @PostMapping("/setData")
+    public List<String> setDataUser(@RequestBody Map<String, String> data) {
+        String email = data.get("email");
+        String password = data.get("password");
+
+        list.add(email);
+        list.add(password);
+
+        return list;
+    }
+
+    @GetMapping("/getData")
+    public List<String> dataUser() {
+        return list;
     }
 
     @PostMapping("/loginUser")

@@ -12,6 +12,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.List;
+
 @Service
 public class CustomUserDetails implements UserDetailsService {
 
@@ -30,14 +33,15 @@ public class CustomUserDetails implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         WebUser webUser = userService.findUserByEmail(username);
-        if (webUser ==null){
-            throw new UsernameNotFoundException("WebUser with email: "+username+" not found");
+        if (webUser == null) {
+            throw new UsernameNotFoundException("WebUser with email: " + username + " not found");
         }
-        return  User.builder().
-                username(webUser.getEmail()).
-                password(webUser.getPassword())
-                .roles(String.valueOf(new SimpleGrantedAuthority(webUser.getRole())))
-                .build();
 
+        // Создаем список ролей пользователя
+        List<SimpleGrantedAuthority> authorities = Arrays.asList(new SimpleGrantedAuthority(webUser.getRole()));
+
+        // Возвращаем объект UserDetails с именем пользователя, паролем и ролями
+        return new User(webUser.getEmail(), webUser.getPassword(), authorities);
     }
+
 }
